@@ -18,10 +18,18 @@ int api_1(int a,char b[20],float c,bool d)
     int ret = 0;
 
 #if CALL_RPC
-    ez_rpc::RpcCall<int> rpc_func("test.socket",__func__);
+    ez_rpc::RpcCallProxy<int> proxy_func("test.socket",__func__);
 
-    ret = rpc_func(a,b,c,d);
+    try{
+        ret = proxy_func(a,b,c,d);
+    }catch(ez_rpc::rpc_err_t err) {
+        RPC_DBG("proxy rpc fun failed,err"<<err);
+    }
+
 #else
+    /**
+     * Real api_i funciton content
+     */
     ret = 1;
 #endif
 
