@@ -39,30 +39,30 @@ public:
     RpcStack(const char* rpc_host) {
     };
 
-    ~RpcStack() {
+    virtual ~RpcStack() {
     };
 
-    bool funcOpen(const char* symbol) {
+    virtual bool funcOpen(const char* symbol) {
         RPC_DBG("Push symbol:"<<symbol);
         return true;
     }
 
-    bool getReturn(void* ret,unsigned int size) {
+    virtual bool getReturn(void* ret,unsigned int size) {
         RPC_DBG("Get return size:"<<size);
         return true;
     }
 
-    bool popReturn(const void* ret,unsigned int size) {
+    virtual bool popReturn(const void* ret,unsigned int size) {
         RPC_DBG("Pop return size:"<<size);
         return true;
     }
 
-    bool pushStack(void* ret,unsigned int size) {
+    virtual bool pushStack(void* ret,unsigned int size) {
         RPC_DBG("param push stack size:"<<size);
         return true;
     }
 
-    bool popStack(void* ret,unsigned int size) {
+    virtual bool popStack(void* ret,unsigned int size) {
         RPC_DBG("param pop stack size:"<<size);
         return true;
     }
@@ -77,7 +77,7 @@ public:
 template<class RET>
 class RpcCallProxy {
 private:
-    RpcStack stack_;
+    RpcStack& stack_;
 
     const char* symbol_;
 
@@ -97,8 +97,8 @@ private:
     }
 
 public:
-    RpcCallProxy(const char* host,const char* symbol):stack_(host),
-                                                 symbol_(symbol)
+    RpcCallProxy(RpcStack& stack,const char* symbol):stack_(stack),
+                                                     symbol_(symbol)
     {}
     ~RpcCallProxy(){}
 

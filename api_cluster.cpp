@@ -18,7 +18,8 @@ int api_1(int a,char b[20],float c,bool d)
     int ret = 0;
 
 #if CALL_RPC
-    ez_rpc::RpcCallProxy<int> proxy_func("test.socket",__func__);
+    ez_rpc::RpcStack stack = ez_rpc::RpcStack("test.socket");
+    ez_rpc::RpcCallProxy<int> proxy_func(stack,__func__);
 
     try{
         ret = proxy_func(a,b,c,d);
