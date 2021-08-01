@@ -82,11 +82,10 @@ int main(int argc,char* argv[])
 
 通过往客户代理对象和服务代理对象中注入`ez_rpc::RpcStack`来按需完成实际的参数和返回值通信操作。  
 `ez_rpc::RpcStack`允许继承动态重载，其必须实现以下几个函数:
-1. `virtual bool funcOpen(const char* symbol);`
-2. `virtual bool getReturn(void* ret,unsigned int size);`
-3. `virtual bool popReturn(const void* ret,unsigned int size);`
-4. `virtual bool pushStack(void* ret,unsigned int size);`
-5. `virtual bool popStack(void* ret,unsigned int size);`
+1. `virtual bool getReturn(void* ret,unsigned int size);`
+2. `virtual bool popReturn(const void* ret,unsigned int size);`
+3. `virtual bool pushStack(void* ret,unsigned int size);`
+4. `virtual bool popStack(void* ret,unsigned int size);`
 
 
 # Limit(限制)

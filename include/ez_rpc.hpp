@@ -14,6 +14,7 @@
 
 #include <iostream>
 #include <tuple>
+#include <type_traits>
 
 #define RPC_DBG(X) do{\
     std::cout<<X<<std::endl;\
@@ -35,17 +36,13 @@ using rpc_err_t = enum RPC_ERR {
  * @brief Communicate Stack from rpc caller to server
  */
 class RpcStack {
+private:
 public:
     RpcStack(const char* rpc_host) {
     };
 
     virtual ~RpcStack() {
     };
-
-    virtual bool funcOpen(const char* symbol) {
-        RPC_DBG("Push symbol:"<<symbol);
-        return true;
-    }
 
     virtual bool getReturn(void* ret,unsigned int size) {
         RPC_DBG("Get return size:"<<size);
@@ -57,7 +54,7 @@ public:
         return true;
     }
 
-    virtual bool pushStack(void* ret,unsigned int size) {
+    virtual bool pushStack(const void* ret,unsigned int size) {
         RPC_DBG("param push stack size:"<<size);
         return true;
     }
@@ -79,15 +76,23 @@ class RpcCallProxy {
 private:
     RpcStack& stack_;
 
-    const char* symbol_;
-
     template<class ... __ARGS>
     bool pushStack(__ARGS... args) {
         return true;
     }
 
     template<class __THIS_ARG,class ... __ARGS>
-    bool pushStack(__THIS_ARG first_arg,__ARGS... args) {
+    bool pushStack(__THIS_ARG* first_arg,__ARGS... args) {
+        bool ret = pushStack(args...);
+        
+        //Push Current Argument
+        ret &= stack_.pushStack(first_arg,sizeof(__THIS_ARG));
+
+        return ret;
+    }
+
+    template<class __THIS_ARG,class ... __ARGS>
+    bool pushStack(const __THIS_ARG& first_arg,__ARGS... args) {
         bool ret = pushStack(args...);
         
         //Push Current Argument
@@ -97,23 +102,24 @@ private:
     }
 
 public:
-    RpcCallProxy(RpcStack& stack,const char* symbol):stack_(stack),
-                                                     symbol_(symbol)
-    {}
+    template<class T>
+    RpcCallProxy(RpcStack& stack,T symbol):stack_(stack)
+    {
+        /**
+         * Open function ,push arguments and get ret value like a local function
+         */
+        if(!stack_.pushStack(symbol,sizeof(T)))
+        {
+            throw k_rpc_func_not_found;
+        }
+
+    }
     ~RpcCallProxy(){}
 
     template<class ... __ARGS>
     RET operator()(__ARGS... args) {
         RET ret;
         
-        /**
-         * Open function ,push arguments and get ret value like a local function
-         */
-        if(!stack_.funcOpen(symbol_))
-        {
-            throw k_rpc_func_not_found;
-        }
-
         if(!pushStack(args...))
         {
             throw k_rpc_param_push_failed;
@@ -203,17 +209,33 @@ auto getArgs(RpcArgs<__ARGS_TYPE ...>& args) {
 
 /**
  * @brief Get Arguments nums
- * 
- * @tparam __ARGS Arguments list 
  */
 template<class T>
-class args_size;
+struct args_size;
 
 template<class ... __ARGS>
-class args_size<RpcArgs<__ARGS...>>{
-public:
-    static constexpr const unsigned int value = sizeof...(__ARGS);
-};
+struct args_size<RpcArgs<__ARGS...>>{ static constexpr const unsigned int value = sizeof...(__ARGS); };
+
+/**
+ * @brief result type traits
+ */
+template <typename C>
+struct result_traits : result_traits<decltype(&C::operator())> {};
+
+template <typename T>
+struct result_traits<T*> : result_traits<T> {};
+
+/* check function */
+template <typename R, typename... P>
+struct result_traits<R(*)(P...)>{ typedef R type; };
+
+/* check member function */
+template <typename R, typename C, typename... P> 
+struct result_traits<R(C::*)(P...)> { typedef R type; };
+
+/* check const member function */
+template <typename R, typename C, typename... P> 
+struct result_traits<R(C::*)(P...) const> { typedef R type; };
 
 /**
  * @brief Base Rpc Bind Class for Polumorphism in run time
@@ -232,19 +254,26 @@ public:
  * @tparam __RET_TYPE function ret type
  * @tparam __ARGS_TYPE function arguments type list
  */
-template<class __RET_TYPE,class ... __ARGS_TYPE>
+template<class __FUN_TYPE,class ... __ARGS_TYPE>
 class RpcServerProxy:public RpcServerProxyBase{
 private: 
-    using func_t =  __RET_TYPE (*)(__ARGS_TYPE...);
-    
-    func_t proxy_func_;
+    // using func_t =  __RET_TYPE (*)(__ARGS_TYPE...);
+    // 绑定的函数类型和返回值类型
+    using func_t = typename std::decay<__FUN_TYPE>::type;
+    using ret_t  = typename result_traits<__FUN_TYPE>::type;
 
+    // 绑定函数 
+    func_t proxy_func_;
+    // 远程参数
+    // RpcArgs<__ARGS_TYPE...> args_;
+
+private: 
     template<class __ARGS, std::size_t... I>
-    __RET_TYPE process(__ARGS& args,std::index_sequence<I...>) const {
+    ret_t process(__ARGS& args,std::index_sequence<I...>) const {
         return proxy_func_(getArgs<I>(args)...);
     }
 
-    __RET_TYPE process(RpcArgs<__ARGS_TYPE...>& args) const {
+    ret_t process(RpcArgs<__ARGS_TYPE...>& args) const {
         return process(args,
                        std::make_index_sequence<args_size<RpcArgs<__ARGS_TYPE...>>::value>());
     }
@@ -266,9 +295,8 @@ public:
              */
             RpcArgs<__ARGS_TYPE...> Args(stack);
 
-            const __RET_TYPE& ret = process(Args);
-
-            stack.popReturn(&ret,sizeof(__RET_TYPE));
+            const ret_t& ret = process(Args);
+            stack.popReturn(&ret,sizeof(ret_t));
         }catch(rpc_err_t err){
             return err;
         }
@@ -277,32 +305,41 @@ public:
     }
 };
 
-/**
- * @brief Create a Rpc Bind Point object
- * 
- * @tparam __RET_TYPE proxy function ret type
- * @tparam __ARGS_TYPE proxy function args types
- * @param func proxy function
- * @return RpcServerProxy<__RET_TYPE,__ARGS_TYPE...>* 
- */
-template<class __RET_TYPE,class ... __ARGS_TYPE>
-RpcServerProxy<__RET_TYPE,__ARGS_TYPE...>* CreateRpcProxyPoint(__RET_TYPE (*func)(__ARGS_TYPE...))
+/* check lamda function */
+template <typename R, typename C, typename... __ARGS_TYPE> 
+auto CreateRpcProxyPoint(C lambda,R(C::*useless)(__ARGS_TYPE...) const)
+    -> RpcServerProxy<decltype(lambda),__ARGS_TYPE...>*
 {
-    return new RpcServerProxy<__RET_TYPE,__ARGS_TYPE...>(func);
+    return new RpcServerProxy<decltype(lambda),__ARGS_TYPE...>(std::forward<C>(lambda));
 }
 
-/**
- * @brief Create a Rpc Bind object
- * 
- * @tparam __RET_TYPE proxy function ret type
- * @tparam __ARGS_TYPE proxy function args types
- * @param func proxy function
- * @return RpcServerProxy<__RET_TYPE,__ARGS_TYPE...> 
- */
-template<class __RET_TYPE,class ... __ARGS_TYPE>
-RpcServerProxy<__RET_TYPE,__ARGS_TYPE...> CreateRpcProxy(__RET_TYPE (*func)(__ARGS_TYPE...))
+template <typename R, typename C, typename... __ARGS_TYPE> 
+auto CreateRpcProxyPoint(C lambda,R(C::*useless)(__ARGS_TYPE...))
+    -> RpcServerProxy<decltype(lambda),__ARGS_TYPE...>*
 {
-    return RpcServerProxy<__RET_TYPE,__ARGS_TYPE...>(func);
+    return new RpcServerProxy<decltype(lambda),__ARGS_TYPE...>(std::forward<C>(lambda));
+}
+
+template <typename C>
+auto CreateRpcProxyPoint(C lambda)
+{
+    return CreateRpcProxyPoint(std::forward<C>(lambda),decltype(&C::operator())());
+}
+
+/* check function */
+template <typename R,  typename... __ARGS_TYPE> 
+auto CreateRpcProxyPoint(R(*func)(__ARGS_TYPE...))
+    -> RpcServerProxy<decltype(func),__ARGS_TYPE...>*
+{
+    return new RpcServerProxy<decltype(func),__ARGS_TYPE...>(func);
+}
+
+/* check member function */
+template <typename R, typename C, typename... __ARGS_TYPE> 
+auto CreateRpcProxyPoint(R(C::*func)(__ARGS_TYPE...))
+    -> RpcServerProxy<decltype(func),__ARGS_TYPE...>*
+{
+    return new RpcServerProxy<decltype(func),__ARGS_TYPE...>(func);
 }
 
 } // namespace name
