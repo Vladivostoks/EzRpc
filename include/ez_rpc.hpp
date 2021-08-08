@@ -47,9 +47,7 @@ protected:
     //communicate socket fo
     int socket_fd_;
 public:
-    RpcStack(int socket_fd):socket_fd_(socket_fd) {
-    
-    };
+    RpcStack(int socket_fd):socket_fd_(socket_fd) {};
 
     virtual ~RpcStack() {
         if(socket_fd_>=0) {
@@ -61,13 +59,11 @@ public:
     /**
      * check socket is invalid or not
      */
-    bool operator !()
-    {
+    bool operator !() {
        return socket_fd_<0;
     }
 
-    operator bool()
-    {
+    operator bool() {
        return socket_fd_>=0;
     }
 
@@ -140,8 +136,7 @@ private:
 
 public:
     template<class T>
-    RpcCallProxy(RpcStack& stack,T symbol):stack_(stack)
-    {
+    RpcCallProxy(RpcStack& stack,T symbol):stack_(stack) {
         /**
          * Open function ,push arguments and get ret value like a local function
          */
@@ -153,8 +148,7 @@ public:
     }
 
     template<class T>
-    RpcCallProxy(RpcStack& stack,const T* symbol):stack_(stack)
-    {
+    RpcCallProxy(RpcStack& stack,const T* symbol):stack_(stack) {
         /**
          * Open function ,push arguments and get ret value like a local function
          */
@@ -209,8 +203,7 @@ private:
     __THIS_TYPE value_; //Server args stack consists of per inherit RpcArgs class
 public:
     RpcArgs(RpcStack& stack) : RpcArgs<__ARGS_TYPE ...>(stack),
-                               stack_(stack)
-    {
+                               stack_(stack) {
         stack_.popStack(&value_,sizeof(__THIS_TYPE));
     }
     virtual ~RpcArgs() {}
@@ -331,15 +324,11 @@ private:
                        std::make_index_sequence<args_size<RpcArgs<__ARGS_TYPE...>>::value>());
     }
 public:
-    RpcServerProxy(func_t bind_func):proxy_func_(bind_func)
-    {
-    };
+    RpcServerProxy(func_t bind_func):proxy_func_(bind_func) {};
 
-    virtual ~RpcServerProxy(){
-    };
+    virtual ~RpcServerProxy() {};
 
-    rpc_err_t operator()(RpcStack& stack)
-    {
+    rpc_err_t operator()(RpcStack& stack) {
         try{
             /**
              * Receive Args in RpcArgs 
@@ -361,29 +350,25 @@ public:
 /* check lamda function */
 template <typename R, typename C, typename... __ARGS_TYPE> 
 auto bind(C lambda,R(C::*useless)(__ARGS_TYPE...) const)
-    -> RpcServerProxy<decltype(lambda),__ARGS_TYPE...>
-{
+    -> RpcServerProxy<decltype(lambda),__ARGS_TYPE...> {
     return RpcServerProxy<decltype(lambda),__ARGS_TYPE...>(std::forward<C>(lambda));
 }
 
 template <typename R, typename C, typename... __ARGS_TYPE> 
 auto bind(C lambda,R(C::*useless)(__ARGS_TYPE...))
-    -> RpcServerProxy<decltype(lambda),__ARGS_TYPE...>
-{
+    -> RpcServerProxy<decltype(lambda),__ARGS_TYPE...> {
     return RpcServerProxy<decltype(lambda),__ARGS_TYPE...>(std::forward<C>(lambda));
 }
 
 template <typename C>
-auto bind(C&& lambda)
-{
+auto bind(C&& lambda) {
     return bind(std::forward<C>(lambda),decltype(&C::operator())());
 }
 
 /* check function */
 template <typename R,  typename... __ARGS_TYPE> 
 auto bind(R(*func)(__ARGS_TYPE...))
-    -> RpcServerProxy<decltype(func),__ARGS_TYPE...>
-{
+    -> RpcServerProxy<decltype(func),__ARGS_TYPE...> {
     return RpcServerProxy<decltype(func),__ARGS_TYPE...>(func);
 }
 
@@ -391,8 +376,7 @@ auto bind(R(*func)(__ARGS_TYPE...))
 /* check member function */
 template <typename R, typename C, typename... __ARGS_TYPE> 
 auto bind(R(C::*func)(__ARGS_TYPE...))
-    -> RpcServerProxy<decltype(func),__ARGS_TYPE...>*
-{
+    -> RpcServerProxy<decltype(func),__ARGS_TYPE...>* {
     return new RpcServerProxy<decltype(func),__ARGS_TYPE...>(func);
 }
 #endif
