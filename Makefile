@@ -7,19 +7,19 @@ LD_FLAG += -lstdc++
 all:client server
 
 %.o:%.cpp
-	$(TOOL_CHAIN) $(CPP_FLAG) -c $< -o $@
+	$(TOOL_CHAIN) $(CPP_FLAG) -c $< -o $@ -I.
 
 %.o:%.c
-	$(TOOL_CHAIN) $(C_FLAG) -c $< -o $@
+	$(TOOL_CHAIN) $(C_FLAG) -c $< -o $@ -I.
 
-client: client.o api_cluster.o
+client: demo/client/client.o demo/server/dev/api_cluster.o
 	$(TOOL_CHAIN) $(LD_FLAG) $^ -o $@
 
-server: server.o api_cluster.o
+server: demo/server/core/server.o
 	$(TOOL_CHAIN) $(LD_FLAG) $^ -o $@
 
 .PHONY: clean
 
 clean: 
-	-rm client server *.o
+	-rm client server demo/server/core/*.o demo/server/dev/*.o demo/client/*.o
 

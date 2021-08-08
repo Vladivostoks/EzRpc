@@ -15,7 +15,9 @@
 extern "C"{
 #endif
 
-int api_1(int a,char b[20],float c,bool d);
+int api_1(bool c);
+int api_2(float b,bool c);
+int api_3(int a,float b,bool c);
 
 #ifdef _cplusplus
 }
