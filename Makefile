@@ -12,6 +12,12 @@ all:client server
 %.o:%.c
 	$(TOOL_CHAIN) $(C_FLAG) -c $< -o $@ -I.
 
+%-init.c:%.c
+	$(TOOL_CHAIN) $(C_FLAG) -Xclang -ast-print -fsyntax-only -c $< -I. > $@
+
+%-init.cpp:%.cpp
+	$(TOOL_CHAIN) $(CPP_FLAG) -Xclang -ast-print -fsyntax-only -c $< -I. > $@
+
 client: demo/client/client.o demo/server/dev/api_cluster.o
 	$(TOOL_CHAIN) $(LD_FLAG) $^ -o $@
 

@@ -23,38 +23,47 @@ class ServerAct{
 protected: 
     TestStack& stack_;
 public:
-    ServerAct(TestStack& stack):stack_(stack) {}
+    ServerAct(TestStack& stack):stack_(stack) {
+        printf("ServerAct Create\n");
+    }
+
     virtual ~ServerAct() {}
 
-    virtual bool operator()(int a,long long b,int c){
-        printf("ServerAct args[%d]-[%lld]-[%d]",a,b,c);
+    virtual int operator()(int a,float b,bool c){
+        printf("ServerAct args[%d]-[%f]-[%d]",a,b,c);
         return false;
     };
 };
 
 class ServerAct_1:public ServerAct{
 public:
-    ServerAct_1(TestStack& stack):ServerAct(stack) {}
-    bool operator()(int a,long long b,int c) {
-        printf("ServerAct_1 args[%d]-[%lld]-[%d]",a,b,c);
+    ServerAct_1(TestStack& stack):ServerAct(stack) {
+        printf("ServerAct_1 create\n");
+    }
+    int operator()(int a,float b,bool c){
+        printf("ServerAct_1 args[%d]-[%f]-[%d]\n",a,b,c);
         return true;
     }
 };
 
 class ServerAct_2:public ServerAct{
 public:
-    ServerAct_2(TestStack& stack):ServerAct(stack) {}
-    bool operator()(int a,long long b,int c) {
-        printf("ServerAct_2 args[%d]-[%lld]-[%d]",a,b,c);
+    ServerAct_2(TestStack& stack):ServerAct(stack) {
+        printf("ServerAct_2 create\n");
+    }
+    int operator()(int a,float b,bool c){
+        printf("ServerAct_2 args[%d]-[%f]-[%d]\n",a,b,c);
         return true;
     }
 };
 
 class ServerAct_3:public ServerAct{
 public:
-    ServerAct_3(TestStack& stack):ServerAct(stack) {}
-    bool operator()(int a,long long b,int c) {
-        printf("ServerAct_3 args[%d]-[%lld]-[%d]",a,b,c);
+    ServerAct_3(TestStack& stack):ServerAct(stack) {
+        printf("ServerAct_3 create\n");
+    }
+    int operator()(int a,float b,bool c){
+        printf("ServerAct_3 args[%d]-[%f]-[%d]\n",a,b,c);
         return true;
     }
 };
@@ -62,10 +71,10 @@ public:
 /**
  * 仿函数调用表
  */
-std::map<rpc_type,ServerAct (*)(TestStack& stack)> functor_rpc_table={
-    {k_func_1, [](TestStack& stack)->ServerAct{ return ServerAct_1(stack); }},
-    {k_func_2, [](TestStack& stack)->ServerAct{ return ServerAct_2(stack); }},
-    {k_func_3, [](TestStack& stack)->ServerAct{ return ServerAct_3(stack); }},
+std::map<rpc_type,ServerAct* (*)(TestStack& stack)> functor_rpc_table={
+    {k_func_1, [](TestStack& stack)->ServerAct* { return new ServerAct_1(stack); }},
+    {k_func_2, [](TestStack& stack)->ServerAct* { return new ServerAct_2(stack); }},
+    {k_func_3, [](TestStack& stack)->ServerAct* { return new ServerAct_3(stack); }},
 };
 
 
@@ -118,9 +127,10 @@ int main(int argc,char* argv[])
             const rpc_type& symbol = ez_rpc::getArgs<0>(ez_rpc::RpcArgs<rpc_type>(stack));
     #if 0
             //从表里创建对应统一接口抽象的函数/仿函数,可在其内部对stack进行接管
-            ez_rpc::bind(
-                functor_rpc_table[symbol](stack)
-            )(stack);
+            ServerAct* act = functor_rpc_table[symbol](stack);
+
+            ez_rpc::bind(*act)(stack);
+            delete act;
     #elif 0
             //单独使用ez_rpc::RpcArgs进行参数接收以及自由使用,注意的是列表后面的参数是先接收的
             ez_rpc::RpcArgs<int,float,bool> args(stack);
@@ -149,13 +159,13 @@ int main(int argc,char* argv[])
                     break;
                 }
             }
+#endif
         }
         else
         {
             printf("Server Err!\n");
             sleep(1);
         }
-#endif
     }
 
     return 0;
